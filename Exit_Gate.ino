@@ -10,6 +10,7 @@
 #define RST_PIN    D1
 #define SERVO_PIN  D3
 #define BUZZER_PIN D8
+#define LED        D4 // Green LED for valid user
 
 // ---------- WIFI ----------
 const char* WIFI_SSID = "vivo Y29";
@@ -36,13 +37,9 @@ MFRC522 mfrc522(SS_PIN, RST_PIN);
 Servo gateServo;
 
 // ---------- BUZZER TIMERS ----------
-bool validBuzzerActive = false;
-unsigned long validBuzzerStart = 0;
-const unsigned long validBuzzerDuration = 200;
-
 bool invalidBuzzerActive = false;
 unsigned long invalidBuzzerStart = 0;
-const unsigned long invalidBuzzerDuration = 5000;
+const unsigned long invalidBuzzerDuration = 2000; // 2 seconds for invalid user
 
 // ---------- FUNCTIONS ----------
 String checkAuthorization(String uid) {
@@ -84,13 +81,7 @@ void sendToFirebase(String name, String uid) {
   Firebase.RTDB.setJSON(&fbdo, logPath.c_str(), &logData);
 }
 
-// ---------- BUZZER CONTROL ----------
-void startValidBuzzer() {
-  tone(BUZZER_PIN, 2000);
-  validBuzzerActive = true;
-  validBuzzerStart = millis();
-}
-
+// ---------- BUZZER ----------
 void startInvalidBuzzer() {
   tone(BUZZER_PIN, 2000);
   invalidBuzzerActive = true;
@@ -98,12 +89,7 @@ void startInvalidBuzzer() {
 }
 
 void handleBuzzers() {
-  unsigned long now = millis();
-  if (validBuzzerActive && now - validBuzzerStart >= validBuzzerDuration) {
-    noTone(BUZZER_PIN);
-    validBuzzerActive = false;
-  }
-  if (invalidBuzzerActive && now - invalidBuzzerStart >= invalidBuzzerDuration) {
+  if (invalidBuzzerActive && millis() - invalidBuzzerStart >= invalidBuzzerDuration) {
     noTone(BUZZER_PIN);
     invalidBuzzerActive = false;
   }
@@ -111,7 +97,7 @@ void handleBuzzers() {
 
 // ---------- GATE ----------
 void openGate(String name, String uid) {
-  Serial.println("EXIT Granted: " + name);
+  Serial.println("Opening gate for: " + name);
   sendToFirebase(name, uid);
   gateServo.write(180);
   delay(3000);
@@ -142,6 +128,8 @@ void handleDoorCommand() {
 void setup() {
   Serial.begin(115200);
   pinMode(BUZZER_PIN, OUTPUT);
+  pinMode(LED, OUTPUT);
+  digitalWrite(LED, LOW); // LED off initially
 
   SPI.begin();
   mfrc522.PCD_Init();
@@ -172,7 +160,7 @@ void setup() {
 
 // ---------- LOOP ----------
 void loop() {
-  handleBuzzers();       // handle both buzzers
+  handleBuzzers();       // handle invalid buzzer timing
   handleDoorCommand();   // check web toggle
 
   if (!mfrc522.PICC_IsNewCardPresent()) return;
@@ -190,11 +178,13 @@ void loop() {
   String name = checkAuthorization(uid);
 
   if (name != "") {
-    startValidBuzzer();  // short beep
+    Serial.println("EXIT Granted: " + name);
+    digitalWrite(LED, HIGH);   // Turn on green LED
     openGate(name, uid);
+    digitalWrite(LED, LOW);    // Turn off LED after gate closes
   } else {
     Serial.println("EXIT DENIED");
-    startInvalidBuzzer(); // long beep
+    startInvalidBuzzer(); // Buzzer for invalid user
   }
 
   mfrc522.PICC_HaltA();
