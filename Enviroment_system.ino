@@ -7,8 +7,8 @@
 #define WIFI_PASSWORD "00001111"
 
 // -------- Firebase ----------
-#define API_KEY "AIzaSyCCY4Puk13qOIMhLr7gkhudmCMimC3-7mw"
-#define DATABASE_URL "https://my-project-de1f7-default-rtdb.asia-southeast1.firebasedatabase.app" 
+#define API_KEY "AIzaSyBK6v10505HX1INGxDxj9ay4HR4y9pgRQA"
+#define DATABASE_URL "https://ldr-sensor-21a8e-default-rtdb.asia-southeast1.firebasedatabase.app" 
 
 // -------- Login firebase ----------
 #define USER_EMAIL "pasindumadusanka041@gmail.com"
