@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Motion Camera Dashboard</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #020617;
+      color: #e5e7eb;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    header {
+      background: #0f172a;
+      padding: 16px 24px;
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #38bdf8;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.6);
+    }
+    .status-box {
+      margin: 16px 16px 0;
+      padding: 10px 14px;
+      border-radius: 10px;
+      background: #020617;
+      border-left: 5px solid #22c55e;
+      font-size: 0.95rem;
+    }
+    .status-box.alert {
+      border-left-color: #ef4444;
+    }
+    h2 {
+      padding: 16px;
+      margin: 0;
+      font-size: 1.2rem;
+    }
+    .images-grid {
+      padding: 0 16px 24px;
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+      flex: 1;
+    }
+    .card {
+      background: #020617;
+      border-radius: 10px;
+      overflow: hidden;
+      border: 1px solid #1f2937;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+      display: flex;
+      flex-direction: column;
+    }
+    .card img {
+      width: 100%;
+      display: block;
+      background: black;
+      object-fit: cover;
+    }
+    .card-footer {
+      padding: 8px 10px;
+      font-size: 0.8rem;
+      color: #9ca3af;
+      text-align: center;
+    }
+    .empty {
+      padding: 24px 16px 40px;
+      text-align: center;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+  <header>🚨 Motion Camera Dashboard</header>
+
+  <div id="motionStatus" class="status-box">
+    Motion Status: Loading...
+  </div>
+
+  <h2>📸 Captured Images</h2>
+
+  <div id="imagesContainer" class="images-grid"></div>
+  <div id="emptyMessage" class="empty" style="display:none;">
+    No images yet. Wait for motion to trigger the camera...
+  </div>
+
+  <!-- ✅ Firebase v8 CDN (no modules needed) -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+  <script>
+    // ✅ TODO: Replace with your real config from Firebase Console → Project Settings → Web app
+    var firebaseConfig = {
+      apiKey: "AIzaSyA-2nDmVJpaFg1L36MIIbOaX7sMQf_NbGE",
+      authDomain: "motionsensor-7ad60.firebaseapp.com",
+      databaseURL: "https://motionsensor-7ad60-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "motionsensor-7ad60",
+      storageBucket: "motionsensor-7ad60.appspot.com",
+      messagingSenderId: "954143925226",
+      appId: "1:954143925226:web:9023b2183de62ef3790893"
+    };
+
+    // 🔹 Initialize Firebase
+    firebase.initializeApp(firebaseConfig);
+    var db = firebase.database();
+
+    var motionStatusEl = document.getElementById("motionStatus");
+    var imagesContainer = document.getElementById("imagesContainer");
+    var emptyMessage = document.getElementById("emptyMessage");
+
+    // ✅ LIVE MOTION STATUS (/motion/status from your PIR code)
+    db.ref("motion/status").on("value", function (snap) {
+      var val = snap.val();
+      if (val) {
+        motionStatusEl.textContent = "Motion Status: 🚨 MOTION DETECTED (Ship Arrived)";
+        motionStatusEl.classList.add("alert");
+      } else {
+        motionStatusEl.textContent = "Motion Status: ✅ No Motion (No Ship Arrived)";
+        motionStatusEl.classList.remove("alert");
+      }
+    }, function (err) {
+      motionStatusEl.textContent = "Motion Status: Error reading from Firebase";
+      console.error(err);
+    });
+
+    // ✅ IMAGES from /images (Base64 encoded strings)
+    db.ref("images").on("value", function (snap) {
+      var data = snap.val() || {};
+      var keys = Object.keys(data);
+
+      imagesContainer.innerHTML = "";
+
+      if (keys.length === 0) {
+        emptyMessage.style.display = "block";
+        return;
+      } else {
+        emptyMessage.style.display = "none";
+      }
+
+      // Newest first (keys are timestamps in millis)
+      keys.sort(function(a, b) { return Number(b) - Number(a); });
+
+      keys.forEach(function (key) {
+        var base64 = data[key];
+
+        var card = document.createElement("div");
+        card.className = "card";
+
+        var img = document.createElement("img");
+        img.src = "data:image/jpeg;base64," + base64;
+
+        var footer = document.createElement("div");
+        footer.className = "card-footer";
+        var d = new Date(Number(key));
+        footer.textContent = d.toLocaleString();
+
+        card.appendChild(img);
+        card.appendChild(footer);
+        imagesContainer.appendChild(card);
+      });
+    }, function (err) {
+      console.error("Error reading images:", err);
+    });
+  </script>
+</body>
+</html>

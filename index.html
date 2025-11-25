@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Motion Sensor Dashboard</title>
+  <style>
+    body {
+      font-family: Arial;
+      background: #0f172a;
+      color: white;
+      text-align: center;
+      padding-top: 40px;
+    }
+
+    .status {
+      font-size: 32px;
+      margin-top: 20px;
+      padding: 20px 30px;
+      border-radius: 12px;
+      display: inline-block;
+      font-weight: bold;
+      transition: 0.3s ease;
+    }
+
+    .on {
+      background: #ff3b30;
+      box-shadow: 0 0 20px #ff3b30;
+      animation: pulse 1s infinite;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    .off {
+      background: #34c759;
+      box-shadow: 0 0 10px #34c759;
+    }
+
+    /* ✅ EXPANDED LOG BOX */
+    .log-box {
+      margin: 30px auto;
+      width: 450px;
+      background: #1e293b;
+      padding: 15px;
+      border-radius: 10px;
+      text-align: left;
+      max-height: 450px;
+      overflow-y: auto;
+      font-size: 16px;
+    }
+
+    .info-box {
+      margin-top: 20px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    button {
+      padding: 12px 25px;
+      font-size: 18px;
+      font-weight: bold;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      color: white;
+      margin-top: 15px;
+    }
+
+    #reportBox {
+      margin: 20px auto;
+      width: 450px;
+      background: #1e293b;
+      padding: 15px;
+      border-radius: 10px;
+      text-align: left;
+      display: none;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Ship Detecter Dashboard</h1>
+  <h3>Realtime Status</h3>
+
+  <div id="motionStatus" class="status off">Loading...</div>
+
+  <div class="info-box">
+    Last Motion: <span id="lastTime">--</span>
+  </div>
+
+  <div class="info-box">
+    Motion Count: <span id="motionCount">0</span>
+  </div>
+
+  <!-- ✅ Start/Stop Button -->
+  <button id="controlBtn">Loading...</button>
+
+  
+
+  
+
+  <!-- ✅ Report Box -->
+  <div id="reportBox"></div>
+
+  <h3>Activity Logs</h3>
+  <div class="log-box" id="logList"></div>
+
+  <!-- Firebase Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+  <!-- ✅ jsPDF for PDF Export -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyA-2nDmVJpaFg1L36MIIbOaX7sMQf_NbGE",
+      authDomain: "motionsensor-7ad60.firebaseapp.com",
+      databaseURL: "https://motionsensor-7ad60-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "motionsensor-7ad60",
+      storageBucket: "motionsensor-7ad60.appspot.com",
+      messagingSenderId: "954143925226",
+      appId: "1:954143925226:web:9023b2183de62ef3790893"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    // ✅ Animated Status
+    db.ref("motion/status").on("value", snapshot => {
+      const status = snapshot.val();
+      const statusBox = document.getElementById("motionStatus");
+
+      if (status) {
+        statusBox.innerHTML = "🚨 SHIP ARRIVED";
+        statusBox.className = "status on";
+      } else {
+        statusBox.innerHTML = "✅ NO SHIP ARRIVED";
+        statusBox.className = "status off";
+      }
+    });
+
+    // ✅ Live Logs + Counter
+    let counter = 0;
+
+    db.ref("motion/logs").limitToLast(200).on("child_added", snapshot => {
+      const logBox = document.getElementById("logList");
+      const data = snapshot.val();
+
+      const logTime = data.time;
+      const logEvent = data.event;
+
+      const log = document.createElement("div");
+      log.innerHTML = `• ${logEvent} <span style="color:#9ca3af;">(${logTime})</span>`;
+      logBox.prepend(log);
+
+      if (logEvent === "MOTION_DETECTED") {
+        counter++;
+        document.getElementById("motionCount").innerText = counter;
+      }
+    });
+
+    // ✅ Last Motion Time
+    db.ref("motion/lastTime").on("value", snapshot => {
+      if (snapshot.exists()) {
+        document.getElementById("lastTime").innerText = snapshot.val();
+      }
+    });
+
+    // ✅ Start/Stop System Control
+    const controlBtn = document.getElementById("controlBtn");
+
+    db.ref("motion/systemEnabled").on("value", snapshot => {
+      const enabled = snapshot.val();
+
+      if (enabled) {
+        controlBtn.innerText = "STOP SENSOR";
+        controlBtn.style.background = "#ff3b30";
+      } else {
+        controlBtn.innerText = "START SENSOR";
+        controlBtn.style.background = "#34c759";
+      }
+    });
+
+    controlBtn.addEventListener("click", () => {
+      db.ref("motion/systemEnabled").once("value").then(snapshot => {
+        const current = snapshot.val();
+        db.ref("motion/systemEnabled").set(!current);
+      });
+    });
+
+   
+  </script>
+
+</body>
+</html>

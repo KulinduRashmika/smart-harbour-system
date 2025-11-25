@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>IoT Sensor Dashboard</title>
+
+    <!-- Firebase SDK -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+    <style>
+        body {
+            background: #f5f7fa;
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .card-container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            width: 260px;
+            text-align: center;
+            border-radius: 12px;
+            box-shadow: 0 3px 15px rgba(0,0,0,0.15);
+            transition: 0.3s ease-in-out;
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+        }
+
+        .value {
+            font-size: 42px;
+            margin-top: 10px;
+            color: #0078ff;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 18px;
+            border: none;
+            border-radius: 8px;
+            background-color: #0078ff;
+            color: white;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background-color: #005bb5;
+        }
+
+        #alertBox {
+            margin-top: 30px;
+            padding: 15px 25px;
+            font-size: 22px;
+            border-radius: 10px;
+            font-weight: bold;
+            display: none;
+        }
+
+        .blink {
+            animation: blinking 1s infinite;
+        }
+
+        @keyframes blinking {
+            0% { background-color: #ff0000; color: white; }
+            50% { background-color: white; color: red; }
+            100% { background-color: #ff0000; color: white; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>IoT Sensor Dashboard</h1>
+
+    <div class="card-container">
+        <div class="card">
+            <h2>Temperature</h2>
+            <div class="value" id="temp">-- °C</div>
+        </div>
+
+        <div class="card">
+            <h2>Humidity</h2>
+            <div class="value" id="hum">-- %</div>
+        </div>
+
+        <div class="card">
+            <h2>Vibration Sensor</h2>
+            <div class="value" id="vib">--</div>
+        </div>
+
+        <div class="card">
+            <h2>Gas Sensor</h2>
+            <div class="value" id="gas">--</div>
+        </div>
+
+        <div class="card">
+            <h2>Emergency Door</h2>
+            <button id="doorBtn">OPEN DOOR</button>
+            <div class="value" id="doorStatus">Closed</div>
+        </div>
+    </div>
+
+    <div id="alertBox">⚠ WARNING: VIBRATION OR GAS DETECTED!</div>
+
+    <script>
+        var firebaseConfig = {
+            apiKey: "AIzaSyCL44i_1iyrdc7wBAWjiHHkJCf68Bl3Xgg",
+            authDomain: "dht22-404f0.firebaseapp.com",
+            databaseURL: "https://dht22-404f0-default-rtdb.asia-southeast1.firebasedatabase.app",
+            projectId: "dht22-404f0",
+            storageBucket: "dht22-404f0.appspot.com",
+            messagingSenderId: "366099431012",
+            appId: "1:366099431012:web:17ba3a307ebd2f09a46971"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+
+        const tempRef = firebase.database().ref("DHT22/Temperature");
+        const humRef = firebase.database().ref("DHT22/Humidity");
+        const vibRef = firebase.database().ref("Vibration/State");
+        const gasRef = firebase.database().ref("Gas/State");
+        const doorRef = firebase.database().ref("EmergencyDoor/State");
+
+        const doorBtn = document.getElementById("doorBtn");
+        const doorStatus = document.getElementById("doorStatus");
+
+        let doorOpen = false;
+
+        // Temperature listener
+        tempRef.on("value", (snapshot) => {
+            document.getElementById("temp").innerHTML = snapshot.val() + " °C";
+        });
+
+        // Humidity listener
+        humRef.on("value", (snapshot) => {
+            document.getElementById("hum").innerHTML = snapshot.val() + " %";
+        });
+
+        // Vibration listener
+        vibRef.on("value", (snapshot) => {
+            document.getElementById("vib").innerHTML = snapshot.val();
+            updateAlert();
+        });
+
+        // Gas listener
+        gasRef.on("value", (snapshot) => {
+            document.getElementById("gas").innerHTML = snapshot.val();
+            updateAlert();
+        });
+
+        // Alert function
+        function updateAlert() {
+            const vib = parseInt(document.getElementById("vib").innerHTML);
+            const gas = parseInt(document.getElementById("gas").innerHTML);
+            const alertBox = document.getElementById("alertBox");
+
+            if (vib === 1 || gas === 1) {
+                alertBox.style.display = "block";
+                alertBox.classList.add("blink");
+            } else {
+                alertBox.style.display = "none";
+                alertBox.classList.remove("blink");
+            }
+        }
+
+        // Door toggle button
+        doorBtn.addEventListener("click", () => {
+            doorOpen = !doorOpen;
+            doorRef.set(doorOpen ? 1 : 0);
+        });
+
+        // Door status listener
+        doorRef.on("value", (snapshot) => {
+            const state = snapshot.val();
+            if(state === 1){
+                doorStatus.innerHTML = "Open";
+                doorBtn.innerHTML = "CLOSE DOOR";
+                doorOpen = true;
+            } else {
+                doorStatus.innerHTML = "Closed";
+                doorBtn.innerHTML = "OPEN DOOR";
+                doorOpen = false;
+            }
+        });
+
+    </script>
+
+</body>
+</html>

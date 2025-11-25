@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Smart Harbour Dashboard </title>
+  <style>
+    /* Desktop-only fixed dashboard (laptop/desktop) */
+    :root{
+      --bg:#0b1e39;
+      --accent:#00aaff;
+      --accent-2:#1fb6ff;
+      --ok:#28c76f;
+      --muted:#cbd5e1;
+      --shadow: 0 10px 30px rgba(2,6,23,0.6);
+      --radius:12px;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%; margin:0; font-family:Inter,Segoe UI,Roboto,Arial,sans-serif; background:var(--bg); color:#fff; overflow:hidden;}
+    header{ height:76px; display:flex; align-items:center; justify-content:space-between; padding:0 28px; background:linear-gradient(90deg,#052032,#0b2a4a); box-shadow:var(--shadow); }
+    header h1{ margin:0; font-size:20px; letter-spacing:0.6px; font-weight:700;}
+    header .status{ font-size:13px; color:rgba(255,255,255,0.9); display:flex; gap:14px; align-items:center;}
+    header .pulse{ width:10px; height:10px; border-radius:50%; background:var(--ok); box-shadow:0 0 8px rgba(40,199,111,0.9); animation:livePulse 2s infinite ease-in-out;}
+    @keyframes livePulse{ 0%{ transform:scale(.9)} 50%{ transform:scale(1.15)} 100%{ transform:scale(.95)} }
+
+    /* layout */
+    .wrap{ display:flex; height:calc(100vh - 76px); gap:18px; padding:18px; }
+    .left { width:380px; display:flex; flex-direction:column; gap:18px; }
+    .card {
+      background: linear-gradient(180deg,#0f293f,#0d2536);
+      border-radius:12px; padding:14px;
+      box-shadow: 0 8px 30px rgba(2,6,23,0.5);
+      border: 1px solid rgba(255,255,255,0.03);
+    }
+    .section-title{ color:var(--muted); font-size:13px; margin-bottom:10px; font-weight:600; }
+    .action-btn{
+      display:flex; align-items:center; gap:10px; width:100%; padding:12px 14px; border-radius:10px;
+      background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.01));
+      color:var(--accent-2); border:1px solid rgba(31,182,255,0.08); cursor:pointer; font-weight:700;
+      transition: transform .14s ease, box-shadow .14s ease, background .14s;
+    }
+    .action-btn:hover{ transform: translateY(-6px); box-shadow: 0 18px 40px rgba(10,90,160,0.18); background: linear-gradient(180deg, rgba(31,182,255,0.06), rgba(31,182,255,0.02)); }
+
+    .legend{ display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
+    .leg{ display:flex; gap:8px; align-items:center; padding:8px 10px; border-radius:8px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.02); color:var(--muted); }
+
+    .right { flex:1; display:flex; flex-direction:column; gap:18px; }
+    .map-card { flex:1; border-radius:12px; overflow:hidden; position:relative; box-shadow: 0 18px 40px rgba(2,6,23,0.6); border:1px solid rgba(255,255,255,0.03); }
+    .map-bg {
+      position:absolute; inset:0;
+      background-image: url("map.jpg");
+      background-size: contain;
+      background-position: center top;
+      background-repeat: no-repeat;
+      filter: saturate(95%) contrast(92%) brightness(92%);
+    }
+
+    .map-btn {
+      position:absolute;
+      padding:10px 14px;
+      border-radius:10px;
+      background:linear-gradient(180deg,var(--accent),var(--accent-2));
+      color:white; font-weight:800; border:0; cursor:pointer;
+      box-shadow: 0 8px 30px rgba(15,111,255,0.18);
+      transition: transform .15s cubic-bezier(.2,.9,.2,1), box-shadow .15s;
+    }
+    .map-btn:hover{ transform: scale(1.12); box-shadow: 0 20px 50px rgba(15,111,255,0.22); }
+
+  </style>
+</head>
+
+<body>
+  <header>
+    <h1>Smart Harbour Dashboard</h1>
+    <div class="status"><div class="pulse"></div>System Online</div>
+  </header>
+
+  <div class="wrap">
+    <div class="left">
+
+      <div class="card">
+        <div class="section-title">Quick Actions</div>
+
+        <button class="action-btn" id="btnMain">▶ MAIN Gate</button>
+        <div style="height:8px"></div>
+        <button class="action-btn" id="btnExit">▶ EXIT Gate</button>
+        <div style="height:8px"></div>
+        <button class="action-btn" id="btnCamera">▶ Front Gate Camera — View</button>
+        <div style="height:8px"></div>
+        <button class="action-btn small" id="btnEnv1">▶ Env Sensor 1</button>
+        <div style="height:6px"></div>
+        <button class="action-btn small" id="btnEnv2">▶ Env Sensor 2</button>
+
+        <div class="section-title" style="margin-top:12px">Notes</div>
+        <div style="color:var(--muted); font-size:13px;">Click map zones or the buttons to open device pages.</div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Other Controls</div>
+
+        <button class="action-btn" id="btnWater">▶ LED Controller</button>
+        <div style="height:8px"></div>
+        <button class="action-btn" id="btnGPS">▶ Ship GPS</button>
+        <div style="height:8px"></div>
+        <button class="action-btn" id="btnLoadcell">▶ Container Load Cell</button>
+        <div style="height:8px"></div>
+        <button class="action-btn" id="btnArrival">▶ Ship Arrival Status</button>
+        <div style="height:8px"></div>
+
+       
+      </div>
+
+      <div class="card">
+        <div class="section-title">Legend</div>
+        <div class="legend">
+          <div class="leg">🔵 Dock area</div>
+          <div class="leg">🟢 Gate / Sensors</div>
+          <div class="leg">⚓ Ship</div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="right">
+      <div class="map-card">
+        <div class="map-bg"></div>
+
+        <button class="map-btn" id="mapMain" style="top:92%; left:76%;"> MAIN Gate</button>
+        <button class="map-btn" id="mapExit" style="top:92%; left:62%;">EXIT Gate</button>
+        <button class="map-btn" id="mapCamera" style="top:85%; left:68%;">Front Camera</button>
+        <button class="map-btn" id="mapEnv1" style="top:80%; left:45%;">Env 1</button>
+        <button class="map-btn" id="mapEnv2" style="top:16%; right:13%;">Env 2</button>
+        <button class="map-btn" id="mapWater" style="top:24%; left:74%;">LED Controller</button>
+        <button class="map-btn" id="mapGPS" style="top:16%; right:70%;">GPS Tracker</button>
+        <button class="map-btn" id="mapLoad" style="top:86%; left:18%;">Load Cell</button>
+        <button class="map-btn" id="mapArrival" style="top:1%; left:10%;">Arrival Status</button>
+
+        
+
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* Add IP here */
+    const IP = {
+      mainGate:  "http://10.242.92.203/",
+      exitGate:  "newExit.html",
+      frontCamera:"front.html",
+      env1:      "env1.html",
+      env2:      "NewWater.html",
+      waterLevel:"http://10.242.92.83/",
+      shipGPS:   "http://10.242.92.195/",
+      loadCell:  "http://10.242.92.205/",
+      arrival:   "index.html",
+
+      
+    };
+
+    function openIP(url, label){
+      if(!url){
+        alert(`${label} URL not set!`);
+        return;
+      }
+      window.open(url, "_blank");
+    }
+
+    /* Left buttons */
+    document.getElementById("btnMain").onclick     = () => openIP(IP.mainGate, "mainGate");
+    document.getElementById("btnExit").onclick     = () => openIP(IP.exitGate, "Gate");
+    document.getElementById("btnCamera").onclick   = () => openIP(IP.frontCamera, "Front Camera");
+    document.getElementById("btnEnv1").onclick     = () => openIP(IP.env1, "Env1");
+    document.getElementById("btnEnv2").onclick     = () => openIP(IP.env2, "Env2");
+    document.getElementById("btnWater").onclick    = () => openIP(IP.waterLevel, "LED Controller");
+    document.getElementById("btnGPS").onclick      = () => openIP(IP.shipGPS, "GPS");
+    document.getElementById("btnLoadcell").onclick = () => openIP(IP.loadCell, "Load Cell");
+    document.getElementById("btnArrival").onclick  = () => openIP(IP.arrival, "Arrival Status");
+
+    
+
+    /* Map buttons */
+    document.getElementById("mapMain").onclick     = () => openIP(IP.mainGate,"mainGate");
+    document.getElementById("mapExit").onclick     = () => openIP(IP.exitGate,"Gate");
+    document.getElementById("mapCamera").onclick   = () => openIP(IP.frontCamera,"Front Camera");
+    document.getElementById("mapEnv1").onclick     = () => openIP(IP.env1,"Env1");
+    document.getElementById("mapEnv2").onclick     = () => openIP(IP.env2,"Env2");
+    document.getElementById("mapWater").onclick    = () => openIP(IP.waterLevel,"LED");
+    document.getElementById("mapGPS").onclick      = () => openIP(IP.shipGPS,"GPS");
+    document.getElementById("mapLoad").onclick     = () => openIP(IP.loadCell,"Load Cell");
+    document.getElementById("mapArrival").onclick  = () => openIP(IP.arrival,"Arrival");
+
+   
+
+  </script>
+
+</body>
+</html>
