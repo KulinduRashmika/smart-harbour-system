@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harbour Dashboard</title>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  body { font-family: Arial, sans-serif; background:#f4f4f4; margin:0; padding:20px; }
+  h1 { text-align:center; color:#333; margin-bottom:20px; }
+  .container { display:flex; flex-wrap:wrap; gap:20px; justify-content:center; }
+  .card { background:#fff; border-radius:12px; padding:20px; flex:1 1 300px; box-shadow:0 8px 30px rgba(0,0,0,0.08); min-width:300px; max-width:500px; }
+  .card h2 { margin-top:0; }
+  .status { font-size:1.2em; margin:10px 0; }
+  .led { display:inline-block; width:20px; height:20px; border-radius:50%; margin-left:10px; vertical-align:middle; }
+  #greenLed, #redLed, #dangerLed { background:gray; }
+  .alert-text { font-weight:700; font-size:1.1em; margin-top:5px; }
+  .alert-safe { color:green; }
+  .alert-warning { color:orange; }
+  .alert-danger { color:red; }
+  canvas { max-width:100%; margin-top:15px; }
+</style>
+</head>
+<body>
+
+<h1>Harbour Monitoring Dashboard</h1>
+
+<div class="container">
+  <!-- Water Level Card -->
+  <div class="card">
+    <h2>Water Level</h2>
+    <div class="status">
+      Level: <span id="waterLevel">--</span>
+      <div class="led" id="greenLed"></div>
+      <div class="led" id="redLed"></div>
+    </div>
+    <div class="status alert-text" id="waterAlert">--</div>
+    <canvas id="waterChart"></canvas>
+  </div>
+
+  <!-- Ship Distance Card -->
+  <div class="card">
+    <h2>Ship Distance</h2>
+    <div class="status">
+      Distance: <span id="distanceCM">--</span> cm
+      <div class="led" id="dangerLed"></div>
+    </div>
+    <div class="status alert-text" id="dangerAlert">--</div>
+  </div>
+</div>
+
+<script>
+  // Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyBtYYTT6L-b3JLbOfQ2BMBcsCz2SonhOyo",
+    authDomain: "waterlevel-fbd94.firebaseapp.com",
+    databaseURL: "https://waterlevel-fbd94-default-rtdb.asia-southeast1.firebasedatabase.app/",
+    projectId: "waterlevel-fbd94",
+    storageBucket: "waterlevel-fbd94.appspot.com",
+    messagingSenderId: "1234567890",
+    appId: "1:1234567890:web:abcdef123456"
+  };
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+
+  // Elements
+  const waterLevelEl = document.getElementById('waterLevel');
+  const waterAlertEl = document.getElementById('waterAlert');
+  const greenLedEl = document.getElementById('greenLed');
+  const redLedEl = document.getElementById('redLed');
+
+  const distanceEl = document.getElementById('distanceCM');
+  const dangerLedEl = document.getElementById('dangerLed');
+  const dangerAlertEl = document.getElementById('dangerAlert');
+
+  // Chart.js setup
+  const ctx = document.getElementById('waterChart').getContext('2d');
+  const chartData = { labels: [], datasets:[{ label:'Water Level', data:[], borderColor:'blue', backgroundColor:'rgba(0,0,255,0.2)', fill:true, tension:0.3 }] };
+  const waterChart = new Chart(ctx, { type:'line', data: chartData, options:{ responsive:true, scales:{ x:{ title:{ display:true, text:'Time' } }, y:{ title:{ display:true, text:'Water Level' }, beginAtZero:true } } } });
+
+  // Current values listener
+  const currentRef = db.ref('/harbour/current');
+  currentRef.on('value', snapshot=>{
+    const data = snapshot.val();
+    if(data){
+      // Water Level
+      waterLevelEl.textContent = data.waterLevel;
+      let waterAlert = data.waterAlert || '';
+      waterAlertEl.textContent = waterAlert;
+
+      if(waterAlert.includes('LOW')){
+        greenLedEl.style.background = "gray";
+        redLedEl.style.background = "orange";
+        waterAlertEl.className="alert-text alert-warning";
+      } else if(waterAlert.includes('HIGH')){
+        greenLedEl.style.background = "gray";
+        redLedEl.style.background = "red";
+        waterAlertEl.className="alert-text alert-danger";
+      } else {
+        greenLedEl.style.background = "green";
+        redLedEl.style.background = "gray";
+        waterAlertEl.className="alert-text alert-safe";
+      }
+
+      // Distance
+      distanceEl.textContent = data.distanceCM;
+      let dangerAlert = data.dangerAlert || '';
+      dangerAlertEl.textContent = dangerAlert;
+
+      if(dangerAlert.includes('Danger')){
+        dangerLedEl.style.background="red";
+        dangerAlertEl.className="alert-text alert-danger";
+      } else {
+        dangerLedEl.style.background="green";
+        dangerAlertEl.className="alert-text alert-safe";
+      }
+    }
+  });
+
+  // History updates for chart
+  const historyRef = db.ref('/harbour/history');
+  historyRef.limitToLast(20).on('child_added', snapshot=>{
+    const data = snapshot.val();
+    if(data){
+      chartData.labels.push(data.timestamp);
+      chartData.datasets[0].data.push(data.waterLevel);
+
+      if(chartData.labels.length>20){
+        chartData.labels.shift();
+        chartData.datasets[0].data.shift();
+      }
+      waterChart.update();
+    }
+  });
+</script>
+
+</body>
+</html>

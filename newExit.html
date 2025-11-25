@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Exit Gate Dashboard</title>
+
+  <!-- Bootstrap -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+
+  <style>
+    body { background: #f2f2f2; }
+    .card { border-radius: 12px; }
+    .header { background: #0d6efd; padding: 20px; color: white; }
+  </style>
+</head>
+
+<body>
+
+<div class="header text-center">
+  <h2>🚪 Exit Gate Dashboard</h2>
+  <p>Realtime RFID + Door Status + Logs</p>
+</div>
+
+<div class="container mt-4">
+
+  <!-- DOOR STATUS + TOGGLE BUTTON -->
+  <div class="card p-3 mb-3 text-center">
+    <h4>Door Status: <span id="doorStatus" class="badge bg-secondary">Loading...</span></h4>
+    <button id="doorToggleBtn" class="btn btn-primary mt-3">Loading...</button>
+  </div>
+
+  <!-- LAST TAG -->
+  <div class="card p-3 mb-3">
+    <h4>Last RFID Scan</h4>
+    <p><b>Name:</b> <span id="lastName">Loading...</span></p>
+    <p><b>UID:</b> <span id="lastUID">Loading...</span></p>
+    <p><b>Time:</b> <span id="lastTime">Loading...</span></p>
+    <p><b>Status:</b> <span id="lastStatus" class="badge bg-info">Loading...</span></p>
+  </div>
+
+  <!-- LOG TABLE -->
+  <div class="card p-3">
+    <h4>Exit Logs</h4>
+    <table class="table table-striped mt-3">
+      <thead class="table-dark">
+        <tr>
+          <th>Name</th>
+          <th>UID</th>
+          <th>Time</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="logTable"></tbody>
+    </table>
+  </div>
+
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-app.js";
+import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/9.22.2/firebase-database.js";
+
+// ============================
+// 🔥 YOUR FIREBASE CONFIG
+// ============================
+const firebaseConfig = {
+
+  apiKey: "AIzaSyDYFcMA_Y3Bw1fbI5qE29itBjr0KfzajW4",
+
+  authDomain: "exit-gate-714e9.firebaseapp.com",
+
+  databaseURL: "https://exit-gate-714e9-default-rtdb.asia-southeast1.firebasedatabase.app",
+
+  projectId: "exit-gate-714e9",
+
+  storageBucket: "exit-gate-714e9.firebasestorage.app",
+
+  messagingSenderId: "340143517860",
+
+  appId: "1:340143517860:web:836eaa06b2ae406ee97631"
+
+};
+
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+// Refs
+const doorRef = ref(db, "door/status");
+const statusRef = ref(db, "CurrentStatus");
+const logRef = ref(db, "ExitLogs");
+
+// Elements
+const doorStatusEl = document.getElementById("doorStatus");
+const doorBtn = document.getElementById("doorToggleBtn");
+
+// ============================
+// 🔥 DOOR TOGGLE BUTTON
+// ============================
+let doorOpen = false;
+
+doorBtn.addEventListener("click", () => {
+  set(doorRef, doorOpen ? 0 : 1);
+});
+
+// Door status listener
+onValue(doorRef, snapshot => {
+  const status = snapshot.val();
+  doorOpen = status === 1;
+
+  doorStatusEl.innerText = doorOpen ? "OPEN" : "CLOSED";
+  doorStatusEl.className = doorOpen ? "badge bg-success" : "badge bg-danger";
+
+  doorBtn.innerText = doorOpen ? "CLOSE GATE" : "OPEN GATE";
+});
+
+// ============================
+// 🔥 LAST TAG UPDATE
+// ============================
+onValue(statusRef, snapshot => {
+  const data = snapshot.val();
+  if (!data) return;
+
+  const uidKeys = Object.keys(data);
+  const lastUID = uidKeys[uidKeys.length - 1];
+  const user = data[lastUID];
+
+  document.getElementById("lastName").innerText = user.name;
+  document.getElementById("lastUID").innerText = user.uid;
+  document.getElementById("lastTime").innerText = user.time;
+  document.getElementById("lastStatus").innerText = user.status;
+});
+
+// ============================
+// 🔥 LOAD FULL EXIT LOGS
+// ============================
+onValue(logRef, snapshot => {
+  const logs = snapshot.val();
+  let tableHTML = "";
+
+  if (logs) {
+    Object.values(logs).reverse().forEach(log => {
+      tableHTML += `
+        <tr>
+          <td>${log.name}</td>
+          <td>${log.uid}</td>
+          <td>${log.time}</td>
+          <td><span class="badge bg-primary">${log.status}</span></td>
+        </tr>
+      `;
+    });
+  }
+
+  document.getElementById("logTable").innerHTML = tableHTML;
+});
+
+</script>
+
+</body>
+</html>

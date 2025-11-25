@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>ESP32-CAM Firebase Dashboard</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #020617;
+      color: #e5e7eb;
+      margin: 0;
+      padding: 0;
+    }
+    header {
+      background: #111827;
+      padding: 15px 25px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.4);
+    }
+    .title {
+      font-size: 22px;
+      font-weight: bold;
+    }
+    button {
+      cursor: pointer;
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 14px;
+      font-weight: 600;
+      background: #2563eb;
+      color: white;
+      transition: 0.2s;
+    }
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 10px rgba(37,99,235,0.4);
+      background: #1d4ed8;
+    }
+    button.secondary { background: #4b5563; }
+    button.danger { background: #dc2626; }
+    .flash-indicator {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .flash-on {
+      background: #22c55e22;
+      color: #22c55e;
+      border: 1px solid #22c55e;
+    }
+    .flash-off {
+      background: #ef444422;
+      color: #ef4444;
+      border: 1px solid #ef4444;
+    }
+    main { padding: 20px; }
+    .filters {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .gallery {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 15px;
+    }
+    .card {
+      background: #020617;
+      border-radius: 12px;
+      border: 1px solid #1f2937;
+      padding: 10px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+    }
+    .card img {
+      width: 100%;
+      border-radius: 10px;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      color: #9ca3af;
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="title">📷 ESP32-CAM Dashboard</div>
+    <div style="display:flex; align-items:center; gap:12px;">
+      <span id="flashStatus" class="flash-indicator flash-off">Flash: OFF</span>
+      <button id="flashOnBtn">Flash ON</button>
+      <button id="flashOffBtn" class="secondary">Flash OFF</button>
+      <button id="clearBtn" class="danger">Clear All Images</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="filters">
+      <button onclick="applyFilter('today')" class="secondary">Today</button>
+      <button onclick="applyFilter('1hour')" class="secondary">Last 1 Hour</button>
+      <button onclick="applyFilter('5pics')" class="secondary">Last 5 Images</button>
+      <button onclick="applyFilter('all')">Show All</button>
+    </div>
+
+    <div id="statusText"></div>
+
+    <div id="gallery" class="gallery"></div>
+    <div id="noImages" style="text-align:center; margin-top:40px; color:#6b7280; display:none;">
+      No images found.
+    </div>
+  </main>
+
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+  <script>
+    // 🔥 REPLACE WITH YOUR PROJECT CONFIG
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+      databaseURL: "https://esp32-camera-project-f9162-default-rtdb.asia-southeast1.firebasedatabase.app/",
+      projectId: "esp32-camera-project-f9162",
+      storageBucket: "esp32-camera-project-f9162.appspot.com",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const gallery = document.getElementById("gallery");
+    const noImages = document.getElementById("noImages");
+    const statusText = document.getElementById("statusText");
+
+    let storedImages = {};  // { id (UNIX seconds) : base64string }
+    let currentFilter = "all";
+
+    // 🔦 FLASH CONTROL
+    const flashRef = db.ref("control/flash");
+    const flashStatus = document.getElementById("flashStatus");
+
+    flashRef.on("value", snap => {
+      const val = (snap.val() || "OFF").toUpperCase();
+      flashStatus.textContent = "Flash: " + val;
+      flashStatus.className = "flash-indicator " + (val === "ON" ? "flash-on" : "flash-off");
+    });
+
+    document.getElementById("flashOnBtn").onclick  = () => flashRef.set("ON");
+    document.getElementById("flashOffBtn").onclick = () => flashRef.set("OFF");
+
+    // 🛑 CLEAR ALL IMAGES
+    document.getElementById("clearBtn").onclick = () => {
+      if (confirm("Delete ALL images?")) {
+        db.ref("images").remove();
+        storedImages = {};
+        applyFilter(currentFilter);
+      }
+    };
+
+    // 🧩 MERGE CHUNKS
+    function mergeChunks(obj) {
+      const keys = Object.keys(obj).sort((a, b) =>
+        parseInt(a.replace("chunk", "")) - parseInt(b.replace("chunk", ""))
+      );
+      return keys.map(k => obj[k]).join("");
+    }
+
+    // 🖼 RENDER SINGLE IMAGE
+    function renderImage(id, base64) {
+      const card = document.createElement("div");
+      card.className = "card";
+
+      const header = document.createElement("div");
+      header.className = "card-header";
+
+      const tsSec = parseInt(id);        // UNIX seconds
+      const tsMs = tsSec * 1000;         // convert to ms
+      const date = new Date(tsMs);
+
+      header.textContent = date.toLocaleString(); // uses local timezone
+
+      const img = document.createElement("img");
+      img.src = "data:image/jpeg;base64," + base64;
+
+      card.appendChild(header);
+      card.appendChild(img);
+      gallery.appendChild(card);
+    }
+
+    // 📡 LISTEN FOR IMAGES
+    const imagesRef = db.ref("images");
+
+    imagesRef.on("child_added", snap => {
+      const id = snap.key;          // UNIX seconds (string)
+      const chunks = snap.val();
+      storedImages[id] = mergeChunks(chunks);
+      applyFilter(currentFilter);
+    });
+
+    imagesRef.on("child_removed", snap => {
+      const id = snap.key;
+      delete storedImages[id];
+      applyFilter(currentFilter);
+    });
+
+    // 🔍 FILTER SYSTEM
+    function applyFilter(type) {
+      currentFilter = type;
+      gallery.innerHTML = "";
+      noImages.style.display = "none";
+
+      const keys = Object.keys(storedImages).sort((a, b) => parseInt(b) - parseInt(a)); // newest first
+
+      let filtered = keys;
+
+      const nowMs = Date.now();
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayStartMs = todayStart.getTime();
+
+      if (type === "today") {
+        filtered = keys.filter(k => {
+          const tsMs = parseInt(k) * 1000;
+          return tsMs >= todayStartMs;
+        });
+      } else if (type === "1hour") {
+        filtered = keys.filter(k => {
+          const tsMs = parseInt(k) * 1000;
+          return (nowMs - tsMs) <= 3600000; // 1 hour
+        });
+      } else if (type === "5pics") {
+        filtered = keys.slice(0, 5);
+      }
+
+      if (filtered.length === 0) {
+        noImages.style.display = "block";
+        return;
+      }
+
+      filtered.forEach(id => renderImage(id, storedImages[id]));
+    }
+  </script>
+</body>
+</html>
