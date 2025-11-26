@@ -1,12 +1,3 @@
-/*****************************************************
- *  NodeMCU + HX711 Load Cell + LCD + Web Page + Ultrasonic + Save History + Search + Graph
- *  Container ID input by user (Option A)
- *
- *  NOTES:
- *  - History stored in RAM (max HISTORY_SIZE entries)
- *  - timestamp = millis() (ms since boot). Replace with NTP if you want real UTC time.
- *  - Save action: page calls /save?container=ID&weight=VALUE  (weight optional; server will use provided or current)
- *****************************************************/
 
 #include <ESP8266WiFi.h>
 #include "HX711.h"
