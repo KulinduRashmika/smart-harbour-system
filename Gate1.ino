@@ -8,7 +8,7 @@
 #include <ESP8266HTTPClient.h>
 #include <WiFiClientSecure.h>
 
-// ---------------- RFID + SERVO ----------------
+// ---------------- RFID + SERVO ---------------
 #define SS_PIN   D8
 #define RST_PIN  D3
 #define SERVO_PIN D1
